@@ -28,20 +28,44 @@ PLAYER_START = (11, 10)
 FRIGHT_SECONDS = 3.0
 PLAYER_STEP, GHOST_STEP = 0.14, 0.17
 
+BG_COLOR = (6, 10, 24)
+GRID_COLOR = (18, 24, 42)
+WALL_COLOR = (58, 110, 255)
+WALL_SHADOW = (18, 55, 130)
+PANEL_COLOR = (12, 18, 32)
+TEXT_COLOR = (240, 240, 240)
+ACCENT_COLOR = (255, 214, 102)
+PLAYER_COLOR = (255, 220, 20)
+PELLET_COLOR = (255, 220, 120)
+
 
 def ghost_color(name, mode):
     """Return an (r, g, b) colour override for a ghost, or None to keep the default."""
-    pass
+    if mode == "normal":
+        return None
+    if mode == "eaten":
+        return (255, 255, 255)
+
+    frightened_tints = {
+        "blinky": (255, 120, 120),
+        "pinky": (255, 180, 220),
+        "inky": (110, 240, 255),
+        "clyde": (255, 200, 120),
+    }
+    return frightened_tints.get(name, (200, 200, 255)) if mode == "frightened" else None
 
 
 def on_pellet_eaten(score, pellets_left):
     """Called after every pellet is eaten; add sound, flashes, or bonus fruit here."""
-    pass
+    if pellets_left == 0:
+        print(f"Final pellet! Score: {score}")
+    elif pellets_left in {170, 70, 30}:
+        print(f"Bonus fruit opportunity: {pellets_left} pellets left, score {score}")
 
 
 def bonus_life_threshold():
     """Return a score value at which the player earns an extra life, or None to disable bonus lives."""
-    pass
+    return 10000
 
 
 def is_wall(cell):
@@ -157,7 +181,7 @@ class Game:
             return
         self.pellets.remove(cell)
         self.score += 10
-        if MAZE[cell[0]][cell[1]] == "O":
+        if MAZE[cell[0]][cell[1]].lower() == "o":
             self.score += 40
             self.fright_left = FRIGHT_SECONDS
             for ghost in self.ghosts:
@@ -210,21 +234,37 @@ class Game:
             self.check_collisions()
 
     def draw(self, screen, font):
-        screen.fill((5, 5, 30))
+        screen.fill(BG_COLOR)
+
         for r, line in enumerate(MAZE):
             for c, value in enumerate(line):
                 rect = pygame.Rect(c * TILE, r * TILE, TILE, TILE)
                 if value == "#":
-                    pygame.draw.rect(screen, (20, 80, 180), rect.inflate(-4, -4), border_radius=6)
+                    pygame.draw.rect(screen, WALL_SHADOW, rect.inflate(-2, -2), border_radius=8)
+                    pygame.draw.rect(screen, WALL_COLOR, rect.inflate(-6, -6), border_radius=6)
+                    pygame.draw.line(screen, (130, 180, 255), (rect.left + 5, rect.top + 5), (rect.right - 5, rect.top + 5), 2)
                 elif (r, c) in self.pellets:
-                    pygame.draw.circle(screen, (255, 220, 120), rect.center, 3 if value == "." else 7)
+                    radius = 3 if value == "." else 7
+                    glow = pygame.Rect(rect.centerx - radius - 4, rect.centery - radius - 4, (radius + 4) * 2, (radius + 4) * 2)
+                    pygame.draw.ellipse(screen, (255, 240, 180), glow)
+                    pygame.draw.circle(screen, PELLET_COLOR, rect.center, radius)
+
+        hud_bg = pygame.Rect(0, ROWS * TILE, W, 32)
+        pygame.draw.rect(screen, PANEL_COLOR, hud_bg)
+        hud = font.render(f"Score {self.score}   Lives {self.lives}   R = reset", True, TEXT_COLOR)
+        screen.blit(hud, (12, ROWS * TILE + 6))
+
         px, py = self.player[1] * TILE + TILE // 2, self.player[0] * TILE + TILE // 2
+        pygame.draw.circle(screen, (255, 220, 20), (px, py), TILE // 2 - 2)
         pygame.draw.circle(screen, (255, 220, 20), (px, py), TILE // 2 - 2)
         mouth = pygame.Vector2(self.direction[1], self.direction[0]) * (TILE // 2)
         if int(self.clock_time * 6) % 2 == 0 and mouth.length() > 0:
             side = pygame.Vector2(-mouth.y, mouth.x) * 0.6
-            pygame.draw.polygon(screen, (5, 5, 30), [(px, py), (px + mouth.x + side.x, py + mouth.y + side.y),
-                                                      (px + mouth.x - side.x, py + mouth.y - side.y)])
+            pygame.draw.polygon(screen, BG_COLOR, [(px, py), (px + mouth.x + side.x, py + mouth.y + side.y),
+                                                  (px + mouth.x - side.x, py + mouth.y - side.y)])
+        pygame.draw.circle(screen, (255, 255, 255), (px - 6, py - 5), 3)
+        pygame.draw.circle(screen, (255, 255, 255), (px + 6, py - 5), 3)
+
         for ghost in self.ghosts:
             gx, gy = ghost.pos[1] * TILE + TILE // 2, ghost.pos[0] * TILE + TILE // 2
             color = ghost.color
@@ -232,18 +272,26 @@ class Game:
                 color = (240, 240, 240) if self.fright_left < 1 and int(self.fright_left * 6) % 2 else (40, 60, 230)
             mode = "eaten" if ghost.eaten else "frightened" if self.fright_left > 0 else "normal"
             color = ghost_color(ghost.name, mode) or color
+
             if ghost.eaten:
-                pygame.draw.circle(screen, (240, 240, 240), (gx - 4, gy), 3)
-                pygame.draw.circle(screen, (240, 240, 240), (gx + 4, gy), 3)
-            else:
-                pygame.draw.circle(screen, color, (gx, gy - 2), TILE // 2 - 3)
-                pygame.draw.rect(screen, color, (gx - TILE // 2 + 3, gy - 2, TILE - 6, TILE // 2 - 2))
-                pygame.draw.circle(screen, (255, 255, 255), (gx - 4, gy - 4), 3)
-                pygame.draw.circle(screen, (255, 255, 255), (gx + 4, gy - 4), 3)
-        hud = font.render(f"Score {self.score}   Lives {self.lives}   R = reset", True, (240, 240, 240))
-        screen.blit(hud, (8, ROWS * TILE + 6))
+                pygame.draw.circle(screen, (255, 255, 255), (gx - 4, gy), 4)
+                pygame.draw.circle(screen, (255, 255, 255), (gx + 4, gy), 4)
+                pygame.draw.rect(screen, (255, 255, 255), (gx - TILE // 2 + 4, gy - 2, TILE - 8, TILE // 2 - 2))
+                continue
+
+            body_rect = pygame.Rect(gx - TILE // 2 + 2, gy - TILE // 2 + 2, TILE - 4, TILE - 6)
+            pygame.draw.ellipse(screen, color, body_rect)
+            pygame.draw.rect(screen, color, (gx - TILE // 2 + 2, gy - 2, TILE - 4, TILE // 2 - 1))
+            pygame.draw.circle(screen, (255, 255, 255), (gx - 5, gy - 4), 4)
+            pygame.draw.circle(screen, (255, 255, 255), (gx + 5, gy - 4), 4)
+            pygame.draw.circle(screen, (20, 30, 120), (gx - 5, gy - 4), 2)
+            pygame.draw.circle(screen, (20, 30, 120), (gx + 5, gy - 4), 2)
+
         if self.state != "play":
             text = "YOU WIN! Press R" if self.state == "win" else "GAME OVER - Press R"
+            overlay = pygame.Surface((W, H), pygame.SRCALPHA)
+            overlay.fill((6, 10, 24, 120))
+            screen.blit(overlay, (0, 0))
             label = font.render(text, True, (255, 255, 120))
             screen.blit(label, label.get_rect(center=(W // 2, H // 2)))
 
