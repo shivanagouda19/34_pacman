@@ -370,25 +370,3 @@ If you want, I can also make it even more premium by adding:
 Created 2 todos
 
 Made changes.
-
-User: yep you did it and teh ui is better than before 
-
-GitHub Copilot: Updated todo list
-
-## Thank you
-
-I’m glad the updated look feels better and more polished.
-
-A few things I improved for the frontend:
-- dark neon arcade theme
-- brighter maze walls and glowing pellets
-- more readable HUD
-- cleaner Pac-Man and ghost sprites
-- win/lose overlay for a more complete game feel
-
-If you want, I can take it one step further and make it look even more premium with:
-1. a proper start screen
-2. animated title/logo
-3. sound effects and background music
-4. a more advanced score panel and game intro
-
